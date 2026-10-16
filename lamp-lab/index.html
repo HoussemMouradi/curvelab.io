@@ -76,52 +76,35 @@ input[type=range]{width:100%;accent-color:var(--accent);height:4px;cursor:pointe
 </aside>
 </main>
 </div>
-<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script>
-<script type="module">
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-import { STLExporter } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/exporters/STLExporter.js';
-const canvas=document.querySelector('#scene');
-const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});
-renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;
-const scene=new THREE.Scene();
-const camera=new THREE.PerspectiveCamera(34,1,.1,2000);camera.position.set(340,260,390);
-scene.add(new THREE.HemisphereLight(0xf5f1dc,0x31382c,2.0));
-const key=new THREE.DirectionalLight(0xfff1d6,3.1);key.position.set(200,320,180);scene.add(key);
-const rim=new THREE.DirectionalLight(0xcde8ff,2.2);rim.position.set(-220,170,-200);scene.add(rim);
-const fill=new THREE.PointLight(0xd5f078,1.1,700);fill.position.set(0,90,0);scene.add(fill);
-const floor=new THREE.GridHelper(600,30,0x41463a,0x292d25);floor.position.y=-1;scene.add(floor);
-const mat=new THREE.MeshStandardMaterial({color:0xe9e3d5,roughness:.3,metalness:.04,side:THREE.DoubleSide});
-let lamp=null,wire=false,colorHex='#e9e3d5',activePreset='ripple';
+<script>
+(function(){
+const canvas=document.querySelector('#scene'),ctx=canvas.getContext('2d');
+const ids=['height','diameter','ribs','depth','twist','taper','wall','base'];
 const defaults={height:220,diameter:160,ribs:24,depth:5,twist:18,taper:18,wall:1.6,base:42};
-function val(id){return Number(document.getElementById(id).value)}
-function updateLabels(){for(const id of Object.keys(defaults)){const el=document.getElementById(id),out=document.getElementById(id+'V');let suffix=({height:' mm',diameter:' mm',ribs:'',depth:' mm',twist:'°',taper:'%',wall:' mm',base:' mm'})[id];out.textContent=el.value+suffix}
-document.querySelector('#sumHeight').innerHTML=val('height')+' <small>mm</small>';document.querySelector('#sumDiameter').innerHTML=val('diameter')+' <small>mm</small>';document.querySelector('#sumWall').innerHTML=val('wall')+' <small>mm</small>'}
-function radiusAt(t,p){const h=val('height'),d=val('diameter'),taper=val('taper')/100,depth=val('depth'),ribs=val('ribs'),twist=val('twist')*Math.PI/180;let profile=Math.sin(Math.PI*(t*.94+.03));let baseR=d*.5*(1-taper*.45),topR=d*.5*(1+taper*.45);let r=baseR+(topR-baseR)*t; r*=.91+.09*Math.sin(Math.PI*t);const phase=p*ribs*Math.PI*2+twist*t*1.6; r+=depth*.5*Math.cos(phase);return Math.max(val('base')*.5+val('wall')+1,r)}
-function makeGeometry(){const h=val('height'),d=val('diameter'),wall=val('wall'),N=192,M=180;const positions=[],normals=[],uvs=[],indices=[];
-function point(t,a,inside=false){const twist=val('twist')*Math.PI/180*t;const p=a/(Math.PI*2);let r=radiusAt(t,p);if(inside)r=Math.max(1,r-wall);const ang=a+twist;return [Math.cos(ang)*r,t*h,Math.sin(ang)*r]}
-for(let layer=0;layer<2;layer++){const inside=layer===1;for(let j=0;j<=M;j++){const t=j/M;for(let i=0;i<=N;i++){const a=i/N*Math.PI*2;positions.push(...point(t,a,inside));uvs.push(i/N,t)}}}
-const layerSize=(M+1)*(N+1);for(let layer=0;layer<2;layer++){const offset=layer*layerSize;for(let j=0;j<M;j++)for(let i=0;i<N;i++){const a=offset+j*(N+1)+i,b=a+N+1;if(layer===0)indices.push(a,b,a+1,b,b+1,a+1);else indices.push(a,a+1,b,b,b+1,a+1)}}
-for(let j of [0,M]){const off=j*(N+1),inner=layerSize+off;for(let i=0;i<N;i++){const a=off+i,b=a+1,c=inner+i,d=c+1;if(j===0)indices.push(a,c,b,b,c,d);else indices.push(a,b,c,b,d,c)}}
-const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));g.setIndex(indices);g.computeVertexNormals();return g}
-function renderLamp(){updateLabels();if(lamp){scene.remove(lamp);lamp.geometry.dispose()}const geometry=makeGeometry();lamp=new THREE.Mesh(geometry,mat);lamp.position.y=-val('height')*.5;lamp.material.wireframe=wire;scene.add(lamp);document.querySelector('#sumFaces').textContent=Math.round(geometry.index.count/3).toLocaleString();document.querySelector('.viewLabel h1').textContent=({ripple:'Ripple No. 01',twist:'Helix No. 02',taper:'Taper No. 03',orb:'Orb No. 04'})[activePreset]}
-let dragging=false,lastX=0,lastY=0,rotY=.55,rotX=.12,dist=540;
-canvas.addEventListener('pointerdown',e=>{dragging=true;lastX=e.clientX;lastY=e.clientY;canvas.setPointerCapture(e.pointerId)});
-canvas.addEventListener('pointermove',e=>{if(!dragging)return;rotY+=(e.clientX-lastX)*.008;rotX=Math.max(-.35,Math.min(.7,rotX+(e.clientY-lastY)*.006));lastX=e.clientX;lastY=e.clientY});
-canvas.addEventListener('pointerup',()=>dragging=false);canvas.addEventListener('pointercancel',()=>dragging=false);
-canvas.addEventListener('wheel',e=>{dist=Math.max(280,Math.min(900,dist+e.deltaY*.5))},{passive:true});
-function home(){rotY=.55;rotX=.12;dist=540}
-function animate(){requestAnimationFrame(animate);const target=new THREE.Vector3(0,0,0);camera.position.set(Math.sin(rotY)*Math.cos(rotX)*dist,Math.sin(rotX)*dist*.7,Math.cos(rotY)*Math.cos(rotX)*dist);camera.lookAt(target);renderer.render(scene,camera)}
-function resize(){const r=canvas.getBoundingClientRect();renderer.setSize(r.width,r.height,false);camera.aspect=r.width/Math.max(1,r.height);camera.updateProjectionMatrix()}new ResizeObserver(resize).observe(canvas);resize();animate();
-Object.keys(defaults).forEach(id=>document.getElementById(id).addEventListener('input',renderLamp));
-function setPreset(p){activePreset=p;const values={ripple:{height:220,diameter:160,ribs:24,depth:5,twist:18,taper:18,wall:1.6,base:42},twist:{height:250,diameter:150,ribs:18,depth:7,twist:76,taper:8,wall:1.8,base:40},taper:{height:210,diameter:175,ribs:32,depth:3.5,twist:0,taper:38,wall:1.6,base:45},orb:{height:175,diameter:180,ribs:40,depth:4,twist:32,taper:-12,wall:1.4,base:38}}[p];Object.entries(values).forEach(([k,v])=>document.getElementById(k).value=v);document.querySelectorAll('.preset').forEach(b=>b.classList.toggle('active',b.dataset.preset===p));renderLamp()}
+let preset='ripple',wire=false,color='#e9e3d5',yaw=.55,pitch=.12,zoom=1,drag=false,lx=0,ly=0,mesh=[];
+const $=s=>document.querySelector(s),v=id=>Number($('#'+id).value);
+const colorRgb=()=>{let h=color.replace('#','');return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]};
+function labels(){ids.forEach(id=>{const suf={height:' mm',diameter:' mm',ribs:'',depth:' mm',twist:'°',taper:'%',wall:' mm',base:' mm'}[id];$('#'+id+'V').textContent=$('#'+id).value+suf});$('#sumHeight').innerHTML=v('height')+' <small>mm</small>';$('#sumDiameter').innerHTML=v('diameter')+' <small>mm</small>';$('#sumWall').innerHTML=v('wall')+' <small>mm</small>'}
+function radius(t,a,inside=false){const d=v('diameter'),taper=v('taper')/100,depth=v('depth'),ribs=v('ribs');let r=d*.5*(1-taper*.45+(taper*.9)*t);r*=.91+.09*Math.sin(Math.PI*t);r+=depth*.5*Math.cos(a*ribs+v('twist')*Math.PI/180*t*1.6);if(inside)r-=v('wall');return Math.max(inside?v('base')*.5: v('base')*.5+v('wall')+1,r)}
+function buildMesh(){const N=112,M=80,h=v('height');let verts=[],tris=[];for(let layer=0;layer<2;layer++){for(let j=0;j<=M;j++){let t=j/M;for(let i=0;i<=N;i++){let a=i/N*Math.PI*2,tw=v('twist')*Math.PI/180*t,r=radius(t,a,layer===1);verts.push([Math.cos(a+tw)*r,(t-.5)*h,Math.sin(a+tw)*r])}}}
+const size=(N+1)*(M+1);for(let layer=0;layer<2;layer++){let off=layer*size;for(let j=0;j<M;j++)for(let i=0;i<N;i++){let a=off+j*(N+1)+i,b=a+N+1;if(layer===0)tris.push([verts[a],verts[b],verts[a+1]],[verts[b],verts[b+1],verts[a+1]]);else tris.push([verts[a],verts[a+1],verts[b]],[verts[b],verts[a+1],verts[b+1]])}}
+for(let j of [0,M]){let off=j*(N+1),inn=size+off;for(let i=0;i<N;i++){let a=off+i,b=a+1,c=inn+i,d=c+1;if(j===0)tris.push([verts[a],verts[c],verts[b]],[verts[b],verts[c],verts[d]]);else tris.push([verts[a],verts[b],verts[c]],[verts[b],verts[d],verts[c]])}}
+mesh=tris;$('#sumFaces').textContent=tris.length.toLocaleString();$('#viewLabel');}
+function project(p,w,h){let x=p[0],y=p[1],z=p[2],cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch);let X=x*cy-z*sy,Z=x*sy+z*cy,Y=y*cp-Z*sp,ZZ=y*sp+Z*cp;let scale=Math.min(w,h)*.78/(v('height')*.8+v('diameter')*1.1)*zoom;return [w*.5+X*scale,h*.51-Y*scale,ZZ]}
+function draw(){const r=canvas.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,2),w=Math.max(1,r.width),h=Math.max(1,r.height);if(canvas.width!==Math.round(w*dpr)||canvas.height!==Math.round(h*dpr)){canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr)}ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
+if(!mesh.length)return;let faces=mesh.map(tri=>{const p=tri.map(p=>project(p,w,h));let ax=tri[1][0]-tri[0][0],ay=tri[1][1]-tri[0][1],az=tri[1][2]-tri[0][2],bx=tri[2][0]-tri[0][0],by=tri[2][1]-tri[0][1],bz=tri[2][2]-tri[0][2];let nx=ay*bz-az*by,ny=az*bx-ax*bz,nz=ax*by-ay*bx,ln=Math.hypot(nx,ny,nz)||1;nx/=ln;ny/=ln;nz/=ln;let light=Math.max(.18,Math.min(1,.42+.58*Math.max(0,(nx*.35+ny*.7+nz*.6))));return {p,z:(p[0][2]+p[1][2]+p[2][2])/3,light}}).sort((a,b)=>b.z-a.z);const rgb=colorRgb();faces.forEach(f=>{ctx.beginPath();ctx.moveTo(f.p[0][0],f.p[0][1]);ctx.lineTo(f.p[1][0],f.p[1][1]);ctx.lineTo(f.p[2][0],f.p[2][1]);ctx.closePath();if(wire){ctx.strokeStyle='rgba(213,240,120,.42)';ctx.lineWidth=.55;ctx.stroke()}else{ctx.fillStyle='rgb('+rgb.map(c=>Math.round(c*f.light)).join(',')+')';ctx.fill();ctx.strokeStyle='rgba(20,22,17,.12)';ctx.lineWidth=.25;ctx.stroke()}});}
+// Replace model with an accessible, dependency-free interactive canvas renderer.
+function refresh(){labels();buildMesh();draw();$('.viewLabel h1').textContent=({ripple:'Ripple No. 01',twist:'Helix No. 02',taper:'Taper No. 03',orb:'Orb No. 04'})[preset]}
+function setPreset(p){preset=p;const values={ripple:{height:220,diameter:160,ribs:24,depth:5,twist:18,taper:18,wall:1.6,base:42},twist:{height:250,diameter:150,ribs:18,depth:7,twist:76,taper:8,wall:1.8,base:40},taper:{height:210,diameter:175,ribs:32,depth:3.5,twist:0,taper:38,wall:1.6,base:45},orb:{height:175,diameter:180,ribs:40,depth:4,twist:32,taper:-12,wall:1.4,base:38}}[p];Object.entries(values).forEach(([k,x])=>$('#'+k).value=x);document.querySelectorAll('.preset').forEach(b=>b.classList.toggle('active',b.dataset.preset===p));refresh()}
+ids.forEach(id=>$('#'+id).addEventListener('input',refresh));
 document.querySelectorAll('.preset').forEach(b=>b.addEventListener('click',()=>setPreset(b.dataset.preset)));
-document.querySelectorAll('.swatch').forEach(b=>b.addEventListener('click',()=>{colorHex=b.dataset.color;mat.color.set(colorHex);document.querySelectorAll('.swatch').forEach(s=>s.classList.toggle('active',s===b))}));
-document.querySelector('#wireBtn').addEventListener('click',()=>{wire=!wire;lamp.material.wireframe=wire;document.querySelector('#wireBtn').textContent=wire?'▧  Solid view':'◇  Wireframe'});
-document.querySelector('#homeView').addEventListener('click',home);
-document.querySelector('#resetBtn').addEventListener('click',()=>setPreset('ripple'));
-function exportSTL(){if(!lamp)return;lamp.updateMatrixWorld(true);const exporter=new STLExporter();const output=exporter.parse(lamp,{binary:true});const blob=new Blob([output],{type:'application/octet-stream'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='curve-lab-'+activePreset+'-lamp.stl';a.click();URL.revokeObjectURL(url)}
-document.querySelector('#exportTop').addEventListener('click',exportSTL);document.querySelector('#exportBottom').addEventListener('click',exportSTL);
-renderLamp();
+document.querySelectorAll('.swatch').forEach(b=>b.addEventListener('click',()=>{color=b.dataset.color;document.querySelectorAll('.swatch').forEach(s=>s.classList.toggle('active',s===b));draw()}));
+$('#wireBtn').addEventListener('click',()=>{wire=!wire;$('#wireBtn').textContent=wire?'▧  Solid view':'◇  Wireframe';draw()});
+$('#homeView').addEventListener('click',()=>{yaw=.55;pitch=.12;zoom=1;draw()});$('#resetBtn').addEventListener('click',()=>setPreset('ripple'));
+canvas.addEventListener('pointerdown',e=>{drag=true;lx=e.clientX;ly=e.clientY;canvas.setPointerCapture(e.pointerId)});canvas.addEventListener('pointermove',e=>{if(!drag)return;yaw+=(e.clientX-lx)*.008;pitch=Math.max(-.5,Math.min(.7,pitch+(e.clientY-ly)*.006));lx=e.clientX;ly=e.clientY;draw()});canvas.addEventListener('pointerup',()=>drag=false);canvas.addEventListener('pointercancel',()=>drag=false);canvas.addEventListener('wheel',e=>{zoom=Math.max(.55,Math.min(1.8,zoom-e.deltaY*.001));draw()},{passive:true});
+function exportSTL(){const all=mesh,buf=new ArrayBuffer(84+all.length*50),view=new DataView(buf);const header='Curve Lab parametric shade - preview mesh';for(let i=0;i<header.length&&i<80;i++)view.setUint8(i,header.charCodeAt(i));view.setUint32(80,all.length,true);let o=84;all.forEach(t=>{let [a,b,c]=t;let ux=b[0]-a[0],uy=b[1]-a[1],uz=b[2]-a[2],vx=c[0]-a[0],vy=c[1]-a[1],vz=c[2]-a[2],nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx,L=Math.hypot(nx,ny,nz)||1;[nx/L,ny/L,nz/L,...a,...b,...c].forEach(n=>{view.setFloat32(o,n,true);o+=4});view.setUint16(o,0,true);o+=2});const blob=new Blob([buf],{type:'application/sla'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='curve-lab-'+preset+'-lamp.stl';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+$('#exportTop').addEventListener('click',exportSTL);$('#exportBottom').addEventListener('click',exportSTL);window.addEventListener('resize',draw);refresh();
+})();
 </script>
 </body>
 </html>
