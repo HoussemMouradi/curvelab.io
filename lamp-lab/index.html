@@ -56,6 +56,11 @@ input[type=range]{width:100%;accent-color:var(--accent);height:4px;cursor:pointe
   <div class="control"><div class="controlHead"><label for="taper">Taper</label><span class="value" id="taperV">18%</span></div><input id="taper" type="range" min="-35" max="45" value="18" step="1"></div>
   <div class="control"><div class="controlHead"><label for="wall">Wall thickness</label><span class="value" id="wallV">1.6 mm</span></div><input id="wall" type="range" min="0.8" max="3.2" value="1.6" step=".2"></div>
   <div class="control"><div class="controlHead"><label for="base">Base opening</label><span class="value" id="baseV">42 mm</span></div><input id="base" type="range" min="25" max="70" value="42" step="1"></div>
+  <div class="sectionTitle">03 / Surface finish</div>
+  <div class="control"><div class="controlHead"><label for="texture">Texture pattern</label></div><select id="texture" style="width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:10px"><option value="micrograin">Micrograin · satin</option><option value="striated">Fine striations</option><option value="linen">Woven / linen</option><option value="stippling">Stippled matte</option><option value="ripple">Organic ripple</option><option value="smooth">Smooth finish</option></select></div>
+  <div class="control"><div class="controlHead"><label for="textureScale">Texture scale</label><span class="value" id="textureScaleV">1.0×</span></div><input id="textureScale" type="range" min="0.5" max="4" value="1" step="0.1"></div>
+  <div class="control"><div class="controlHead"><label for="textureStrength">Texture intensity</label><span class="value" id="textureStrengthV">0.35</span></div><input id="textureStrength" type="range" min="0" max="1" value="0.35" step="0.05"></div>
+  <p class="hint">Surface texture is for visual preview; it does not add physical micro-detail to the exported STL.</p>
   <p class="hint">All dimensions are in millimeters. Changes update the live preview.</p>
 </aside>
 <section class="viewer">
@@ -100,7 +105,31 @@ const rim=new THREE.DirectionalLight(0xffffff,2.4);rim.position.set(0,180,-260);
 const floorMat=new THREE.MeshStandardMaterial({color:'#eeeae1',roughness:.82});
 const floor=new THREE.Mesh(new THREE.PlaneGeometry(2000,2000),floorMat);floor.rotation.x=-Math.PI/2;floor.position.y=-165;floor.receiveShadow=true;scene.add(floor);
 const studio=new THREE.Group();scene.add(studio);
-let lamp=null, groundShadow=null, geometry=null;
+let lamp=null, groundShadow=null, geometry=null, bumpTexture=null;
+function makeBumpTexture(){
+ const type=$('#texture').value, scale=Number($('#textureScale').value), size=256;
+ const c=document.createElement('canvas');c.width=size;c.height=size;const x=c.getContext('2d');
+ const img=x.createImageData(size,size);
+ for(let y=0;y<size;y++)for(let xx=0;xx<size;xx++){
+  const u=xx/size,vv=y/size;let n=128;
+  if(type==='micrograin'){n+=Math.sin(xx*1.7+Math.sin(y*.19)*2)*8+Math.sin(y*2.1+xx*.37)*5+(Math.random()-.5)*24}
+  else if(type==='striated'){n+=Math.sin(xx/size*Math.PI*2*36*scale + Math.sin(vv*18)*.7)*32+(Math.random()-.5)*5}
+  else if(type==='linen'){n+=Math.sin(xx/size*Math.PI*2*26*scale)*18+Math.sin(y/size*Math.PI*2*26*scale)*18}
+  else if(type==='stippling'){n+=(Math.random()-.5)*95+Math.sin(xx*.16)*4}
+  else if(type==='ripple'){n+=Math.sin(Math.hypot(xx-size*.5,y-size*.5)*.55*scale+Math.sin(xx*.04)*2)*25}
+  img.data[(y*size+xx)*4]=img.data[(y*size+xx)*4+1]=img.data[(y*size+xx)*4+2]=Math.max(0,Math.min(255,n));
+  img.data[(y*size+xx)*4+3]=255;
+ }
+ x.putImageData(img,0,0);const tex=new THREE.CanvasTexture(c);tex.wrapS=tex.wrapT=THREE.RepeatWrapping;tex.repeat.set(3*scale,3*scale);tex.colorSpace=THREE.NoColorSpace;tex.needsUpdate=true;return tex;
+}
+function updateTexture(){
+ if(bumpTexture)bumpTexture.dispose();
+ bumpTexture=makeBumpTexture();
+ if(lamp){lamp.material.bumpMap=$('#texture').value==='smooth'?null:bumpTexture;lamp.material.bumpScale=Number($('#textureStrength').value)*1.4;lamp.material.roughness=$('#texture').value==='smooth'?.2:($('#texture').value==='stippling'?.78:renderMode?.32:.52);lamp.material.needsUpdate=true}
+ $('#textureScaleV').textContent=Number($('#textureScale').value).toFixed(1)+'×';
+ $('#textureStrengthV').textContent=Number($('#textureStrength').value).toFixed(2);
+ render();
+}
 function labels(){ids.forEach(id=>{const suf={height:' mm',diameter:' mm',ribs:'',depth:' mm',twist:'°',taper:'%',wall:' mm',base:' mm'}[id];$('#'+id+'V').textContent=$('#'+id).value+suf});$('#sumHeight').innerHTML=v('height')+' <small>mm</small>';$('#sumDiameter').innerHTML=v('diameter')+' <small>mm</small>';$('#sumWall').innerHTML=v('wall')+' <small>mm</small>'}
 function radius(t,a,inner=false){const d=v('diameter'),taper=v('taper')/100,depth=v('depth'),ribs=v('ribs');let r=d*.5*(1-taper*.45+(taper*.9)*t);r*=.91+.09*Math.sin(Math.PI*t);r+=depth*.5*Math.cos(a*ribs+v('twist')*Math.PI/180*t*1.6);if(inner)r-=v('wall');return Math.max(inner?v('base')*.5:v('base')*.5+v('wall')+1,r)}
 function makeGeometry(){const N=128,M=96,h=v('height'),positions=[],indices=[];
@@ -109,12 +138,15 @@ function makeGeometry(){const N=128,M=96,h=v('height'),positions=[],indices=[];
  for(let layer=0;layer<2;layer++){const off=layer*stride;for(let j=0;j<M;j++)for(let i=0;i<N;i++){const a=off+j*(N+1)+i,b=a+N+1;if(layer===0)indices.push(a,b,a+1,b,b+1,a+1);else indices.push(a,a+1,b,b,a+1,b+1)}}
  for(const j of [0,M]){for(let i=0;i<N;i++){const a=j*(N+1)+i,b=a+1,c=stride+a,d=stride+b;if(j===0)indices.push(a,c,b,b,c,d);else indices.push(a,b,c,b,d,c)}}
  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setIndex(indices);g.computeVertexNormals();return g}
-function rebuild(){if(lamp){studio.remove(lamp);lamp.geometry.dispose();lamp.material.dispose()}geometry=makeGeometry();const mat=new THREE.MeshPhysicalMaterial({color,roughness:renderMode?.27:.48,metalness:.02,clearcoat:renderMode?.34:.05,clearcoatRoughness:.24,side:THREE.DoubleSide});lamp=new THREE.Mesh(geometry,mat);lamp.castShadow=true;lamp.receiveShadow=true;lamp.rotation.y=yaw;lamp.rotation.x=pitch;lamp.position.y=0;lamp.material.wireframe=wire;studio.add(lamp);const tri=geometry.index.count/3;$('#sumFaces').textContent=Math.round(tri).toLocaleString();$('.viewLabel h1').textContent=({ripple:'Ripple No. 01',twist:'Helix No. 02',taper:'Taper No. 03',orb:'Orb No. 04'})[preset];fitCamera();render()}
+function rebuild(){if(lamp){studio.remove(lamp);lamp.geometry.dispose();lamp.material.dispose()}geometry=makeGeometry();const mat=new THREE.MeshPhysicalMaterial({color,roughness:renderMode?.32:.52,metalness:.02,clearcoat:renderMode?.34:.05,clearcoatRoughness:.24,side:THREE.DoubleSide});lamp=new THREE.Mesh(geometry,mat);lamp.castShadow=true;lamp.receiveShadow=true;lamp.rotation.y=yaw;lamp.rotation.x=pitch;lamp.position.y=0;lamp.material.wireframe=wire;studio.add(lamp);updateTexture();const tri=geometry.index.count/3;$('#sumFaces').textContent=Math.round(tri).toLocaleString();$('.viewLabel h1').textContent=({ripple:'Ripple No. 01',twist:'Helix No. 02',taper:'Taper No. 03',orb:'Orb No. 04'})[preset];fitCamera();render()}
 function fitCamera(){const h=v('height'),d=v('diameter');camera.position.set(1.55*d, h*.38+40, 2.35*d+80);camera.lookAt(0,0,0);camera.zoom=zoom;camera.updateProjectionMatrix()}
 function render(){const w=Math.max(1,viewer.clientWidth),h=Math.max(1,viewer.clientHeight);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();renderer.render(scene,camera)}
 function refresh(){labels();rebuild()}
 function setPreset(p){preset=p;const values={ripple:{height:220,diameter:160,ribs:24,depth:5,twist:18,taper:18,wall:1.6,base:42},twist:{height:250,diameter:150,ribs:18,depth:7,twist:76,taper:8,wall:1.8,base:40},taper:{height:210,diameter:175,ribs:32,depth:3.5,twist:0,taper:38,wall:1.6,base:45},orb:{height:175,diameter:180,ribs:40,depth:4,twist:32,taper:-12,wall:1.4,base:38}}[p];Object.entries(values).forEach(([k,x])=>$('#'+k).value=x);document.querySelectorAll('.preset').forEach(b=>b.classList.toggle('active',b.dataset.preset===p));refresh()}
 ids.forEach(id=>$('#'+id).addEventListener('input',refresh));
+$('#texture').addEventListener('change',updateTexture);
+$('#textureScale').addEventListener('input',updateTexture);
+$('#textureStrength').addEventListener('input',updateTexture);
 document.querySelectorAll('.preset').forEach(b=>b.addEventListener('click',()=>setPreset(b.dataset.preset)));
 document.querySelectorAll('.swatch').forEach(b=>b.addEventListener('click',()=>{color=b.dataset.color;document.querySelectorAll('.swatch').forEach(s=>s.classList.toggle('active',s===b));if(lamp)lamp.material.color.set(color);render()}));
 $('#wireBtn').addEventListener('click',()=>{wire=!wire;$('#wireBtn').textContent=wire?'▧  Solid view':'◇  Wireframe';$('#wireBtn').classList.toggle('active',wire);if(lamp)lamp.material.wireframe=wire;render()});
