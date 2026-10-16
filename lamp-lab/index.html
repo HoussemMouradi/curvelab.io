@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Curve Lab — Parametric Lamp Studio</title>
+<meta name="description" content="Design a custom parametric lampshade, preview it in 3D and export an STL for 3D printing.">
+<style>
+:root{--bg:#10110f;--panel:#191b18;--panel2:#20231f;--line:#343832;--text:#f0f0e9;--muted:#9a9f94;--accent:#d5f078;--accentInk:#1b2110}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+button,input,select{font:inherit}button{cursor:pointer;border:0}.app{min-height:100vh;display:grid;grid-template-rows:70px 1fr}
+header{display:flex;align-items:center;justify-content:space-between;padding:0 26px;border-bottom:1px solid var(--line);gap:18px}
+.brand{display:flex;align-items:center;gap:12px;font-weight:800;letter-spacing:.12em;font-size:13px}.mark{width:28px;height:28px;border:1px solid var(--accent);border-radius:50%;display:grid;place-items:center;color:var(--accent);font-size:17px}
+.brand small{display:block;color:var(--muted);font-size:9px;letter-spacing:.2em;font-weight:600;margin-top:2px}
+.headerRight{display:flex;align-items:center;gap:12px}.status{color:var(--muted);font-size:11px;letter-spacing:.08em}.btn{border-radius:6px;padding:11px 15px;font-weight:750;font-size:12px}.btn.primary{background:var(--accent);color:var(--accentInk)}.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+main{display:grid;grid-template-columns:310px minmax(0,1fr) 245px;min-height:calc(100vh - 70px)}
+aside{background:var(--panel);padding:22px 20px;border-right:1px solid var(--line);overflow:auto}.right{border-right:0;border-left:1px solid var(--line);background:#151714}
+.sectionTitle{font-size:10px;letter-spacing:.16em;color:var(--muted);font-weight:800;text-transform:uppercase;margin:2px 0 18px;display:flex;justify-content:space-between}
+.control{margin-bottom:22px}.controlHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}.control label{font-size:12px;color:#e5e7df}.value{color:var(--accent);font-variant-numeric:tabular-nums;font-size:12px;font-weight:750}
+input[type=range]{width:100%;accent-color:var(--accent);height:4px;cursor:pointer}
+.hint{color:var(--muted);font-size:10px;margin-top:7px}.presets{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:26px}.preset{background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:10px 7px;border-radius:6px;font-size:11px}.preset:hover,.preset.active{border-color:var(--accent);color:var(--accent)}
+.viewer{position:relative;min-height:650px;overflow:hidden;background:radial-gradient(ellipse at 50% 43%,#30332a 0,#1b1d19 36%,#11120f 76%)}
+#scene{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:pan-y}
+.viewLabel{position:absolute;left:24px;top:22px;pointer-events:none}.eyebrow{color:var(--accent);font-size:9px;letter-spacing:.2em;font-weight:800}.viewLabel h1{font-size:24px;letter-spacing:-.04em;margin:6px 0;font-weight:600}.viewLabel p{margin:0;color:var(--muted);font-size:11px}
+.viewTools{position:absolute;right:18px;top:18px;display:flex;gap:7px}.iconBtn{background:#20231fdc;color:var(--text);border:1px solid #454a40;border-radius:5px;padding:9px 11px;font-size:11px}
+.bottomBar{position:absolute;bottom:0;left:0;right:0;padding:14px 22px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid #35382e;background:#141611d9;color:var(--muted);font-size:10px}
+.bottomBar strong{color:var(--text);font-weight:600}.swatches{display:flex;gap:8px}.swatch{width:20px;height:20px;border-radius:50%;border:2px solid #4a4d44}.swatch.active{outline:1px solid var(--accent);outline-offset:2px}
+.metric{padding:14px 0;border-bottom:1px solid var(--line)}.metric span{display:block;color:var(--muted);font-size:10px;letter-spacing:.08em;text-transform:uppercase}.metric strong{font-size:22px;letter-spacing:-.04em;font-weight:600;display:block;margin-top:3px}.metric small{font-size:10px;color:var(--muted)}
+.infoCard{margin-top:22px;padding:14px;background:var(--panel2);border:1px solid var(--line);border-radius:7px}.infoCard h3{font-size:11px;margin:0 0 8px}.infoCard p{font-size:10px;color:var(--muted);margin:0;line-height:1.6}
+.printBtn{width:100%;margin-top:22px}.footerNote{font-size:10px;color:var(--muted);line-height:1.6;margin-top:14px}
+@media(max-width:1050px){main{grid-template-columns:270px minmax(0,1fr)}.right{grid-column:1/-1;border-left:0;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(3,1fr);gap:18px;padding:18px 22px}.right .sectionTitle{grid-column:1/-1;margin-bottom:0}.metric{border-bottom:0}.infoCard{margin-top:0}.printBtn{margin-top:0}}
+@media(max-width:700px){.app{grid-template-rows:60px 1fr}header{padding:0 14px}.status{display:none}main{display:flex;flex-direction:column}.viewer{order:0;min-height:54vh}.left{order:1;border-right:0;border-top:1px solid var(--line)}.right{order:2;display:block}.right .sectionTitle{margin-bottom:10px}.metric{padding:10px 0}.viewLabel{left:15px;top:15px}.viewLabel h1{font-size:20px}.headerRight .btn{padding:9px 10px}.brand{font-size:11px}}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="brand"><div class="mark">∿</div><div>CURVE LAB<small>OBJECTS / PARAMETRIC STUDIO</small></div></div>
+  <div class="headerRight"><span class="status">● LIVE GEOMETRY</span><button class="btn ghost" id="resetBtn">Reset</button><button class="btn primary" id="exportTop">Export STL ↗</button></div>
+</header>
+<main>
+<aside class="left">
+  <div class="sectionTitle">01 / Shape library <span>01—04</span></div>
+  <div class="presets">
+    <button class="preset active" data-preset="ripple">01 &nbsp; Ripple</button>
+    <button class="preset" data-preset="twist">02 &nbsp; Helix</button>
+    <button class="preset" data-preset="taper">03 &nbsp; Taper</button>
+    <button class="preset" data-preset="orb">04 &nbsp; Orb</button>
+  </div>
+  <div class="sectionTitle">02 / Geometry</div>
+  <div class="control"><div class="controlHead"><label for="height">Overall height</label><span class="value" id="heightV">220 mm</span></div><input id="height" type="range" min="100" max="320" value="220" step="5"></div>
+  <div class="control"><div class="controlHead"><label for="diameter">Maximum diameter</label><span class="value" id="diameterV">160 mm</span></div><input id="diameter" type="range" min="90" max="240" value="160" step="5"></div>
+  <div class="control"><div class="controlHead"><label for="ribs">Rib count</label><span class="value" id="ribsV">24</span></div><input id="ribs" type="range" min="6" max="64" value="24" step="1"></div>
+  <div class="control"><div class="controlHead"><label for="depth">Rib depth</label><span class="value" id="depthV">5 mm</span></div><input id="depth" type="range" min="0" max="12" value="5" step=".5"></div>
+  <div class="control"><div class="controlHead"><label for="twist">Twist</label><span class="value" id="twistV">18°</span></div><input id="twist" type="range" min="-90" max="90" value="18" step="1"></div>
+  <div class="control"><div class="controlHead"><label for="taper">Taper</label><span class="value" id="taperV">18%</span></div><input id="taper" type="range" min="-35" max="45" value="18" step="1"></div>
+  <div class="control"><div class="controlHead"><label for="wall">Wall thickness</label><span class="value" id="wallV">1.6 mm</span></div><input id="wall" type="range" min="0.8" max="3.2" value="1.6" step=".2"></div>
+  <div class="control"><div class="controlHead"><label for="base">Base opening</label><span class="value" id="baseV">42 mm</span></div><input id="base" type="range" min="25" max="70" value="42" step="1"></div>
+  <p class="hint">All dimensions are in millimeters. Changes update the live preview.</p>
+</aside>
+<section class="viewer">
+  <canvas id="scene"></canvas>
+  <div class="viewLabel"><div class="eyebrow">FORM STUDY / 001</div><h1>Ripple No. 01</h1><p>Parametric shade · Made to be printed</p></div>
+  <div class="viewTools"><button class="iconBtn" id="homeView">⌂ &nbsp; Home view</button><button class="iconBtn" id="wireBtn">◇ &nbsp; Wireframe</button></div>
+  <div class="bottomBar"><div><strong>DRAG</strong> to orbit &nbsp; / &nbsp; <strong>SCROLL</strong> to zoom</div><div class="swatches"><button class="swatch active" data-color="#e9e3d5" style="background:#e9e3d5" aria-label="Warm white"></button><button class="swatch" data-color="#c7d3b7" style="background:#c7d3b7" aria-label="Sage"></button><button class="swatch" data-color="#d1a16c" style="background:#d1a16c" aria-label="Sand"></button><button class="swatch" data-color="#8d999f" style="background:#8d999f" aria-label="Slate"></button></div></div>
+</section>
+<aside class="right">
+  <div class="sectionTitle">03 / Print summary <span>LIVE</span></div>
+  <div class="metric"><span>Height</span><strong id="sumHeight">220 <small>mm</small></strong></div>
+  <div class="metric"><span>Max diameter</span><strong id="sumDiameter">160 <small>mm</small></strong></div>
+  <div class="metric"><span>Wall thickness</span><strong id="sumWall">1.6 <small>mm</small></strong></div>
+  <div class="metric"><span>Mesh resolution</span><strong id="sumFaces">—</strong><small>Triangles, approximate</small></div>
+  <div class="infoCard"><h3>Print notes</h3><p>Use a translucent or natural filament for a diffused glow. Validate minimum wall thickness and fit with your slicer before printing. Use an LED light source only.</p></div>
+  <button class="btn primary printBtn" id="exportBottom">Download STL file ↓</button>
+  <div class="footerNote">STL exports the shade mesh in millimeter-scale coordinates. Electrical components and lamp base are not included.</div>
+</aside>
+</main>
+</div>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import { STLExporter } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/exporters/STLExporter.js';
+const canvas=document.querySelector('#scene');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(34,1,.1,2000);camera.position.set(340,260,390);
+scene.add(new THREE.HemisphereLight(0xf5f1dc,0x31382c,2.0));
+const key=new THREE.DirectionalLight(0xfff1d6,3.1);key.position.set(200,320,180);scene.add(key);
+const rim=new THREE.DirectionalLight(0xcde8ff,2.2);rim.position.set(-220,170,-200);scene.add(rim);
+const fill=new THREE.PointLight(0xd5f078,1.1,700);fill.position.set(0,90,0);scene.add(fill);
+const floor=new THREE.GridHelper(600,30,0x41463a,0x292d25);floor.position.y=-1;scene.add(floor);
+const mat=new THREE.MeshStandardMaterial({color:0xe9e3d5,roughness:.3,metalness:.04,side:THREE.DoubleSide});
+let lamp=null,wire=false,colorHex='#e9e3d5',activePreset='ripple';
+const defaults={height:220,diameter:160,ribs:24,depth:5,twist:18,taper:18,wall:1.6,base:42};
+function val(id){return Number(document.getElementById(id).value)}
+function updateLabels(){for(const id of Object.keys(defaults)){const el=document.getElementById(id),out=document.getElementById(id+'V');let suffix=({height:' mm',diameter:' mm',ribs:'',depth:' mm',twist:'°',taper:'%',wall:' mm',base:' mm'})[id];out.textContent=el.value+suffix}
+document.querySelector('#sumHeight').innerHTML=val('height')+' <small>mm</small>';document.querySelector('#sumDiameter').innerHTML=val('diameter')+' <small>mm</small>';document.querySelector('#sumWall').innerHTML=val('wall')+' <small>mm</small>'}
+function radiusAt(t,p){const h=val('height'),d=val('diameter'),taper=val('taper')/100,depth=val('depth'),ribs=val('ribs'),twist=val('twist')*Math.PI/180;let profile=Math.sin(Math.PI*(t*.94+.03));let baseR=d*.5*(1-taper*.45),topR=d*.5*(1+taper*.45);let r=baseR+(topR-baseR)*t; r*=.91+.09*Math.sin(Math.PI*t);const phase=p*ribs+twist*t*1.6; r+=depth*.5*Math.cos(phase);return Math.max(val('base')*.5+val('wall')+1,r)}
+function makeGeometry(){const h=val('height'),d=val('diameter'),wall=val('wall'),N=192,M=180;const positions=[],normals=[],uvs=[],indices=[];
+function point(t,a,inside=false){const twist=val('twist')*Math.PI/180*t;const p=a/(Math.PI*2);let r=radiusAt(t,p);if(inside)r=Math.max(1,r-wall);const ang=a+twist;return [Math.cos(ang)*r,t*h,Math.sin(ang)*r]}
+for(let layer=0;layer<2;layer++){const inside=layer===1;for(let j=0;j<=M;j++){const t=j/M;for(let i=0;i<=N;i++){const a=i/N*Math.PI*2;positions.push(...point(t,a,inside));uvs.push(i/N,t)}}}
+const layerSize=(M+1)*(N+1);for(let layer=0;layer<2;layer++){const offset=layer*layerSize;for(let j=0;j<M;j++)for(let i=0;i<N;i++){const a=offset+j*(N+1)+i,b=a+N+1;if(layer===0)indices.push(a,b,a+1,b,b+1,a+1);else indices.push(a,a+1,b,b,b+1,a+1)}}
+for(let j of [0,M]){const off=j*(N+1),inner=layerSize+off;for(let i=0;i<N;i++){const a=off+i,b=a+1,c=inner+i,d=c+1;if(j===0)indices.push(a,c,b,b,c,d);else indices.push(a,b,c,b,d,c)}}
+const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));g.setIndex(indices);g.computeVertexNormals();return g}
+function renderLamp(){updateLabels();if(lamp){scene.remove(lamp);lamp.geometry.dispose()}const geometry=makeGeometry();lamp=new THREE.Mesh(geometry,mat);lamp.position.y=-val('height')*.5;lamp.material.wireframe=wire;scene.add(lamp);document.querySelector('#sumFaces').textContent=Math.round(geometry.index.count/3).toLocaleString();document.querySelector('.viewLabel h1').textContent=({ripple:'Ripple No. 01',twist:'Helix No. 02',taper:'Taper No. 03',orb:'Orb No. 04'})[activePreset]}
+let dragging=false,lastX=0,lastY=0,rotY=.55,rotX=.12,dist=540;
+canvas.addEventListener('pointerdown',e=>{dragging=true;lastX=e.clientX;lastY=e.clientY;canvas.setPointerCapture(e.pointerId)});
+canvas.addEventListener('pointermove',e=>{if(!dragging)return;rotY+=(e.clientX-lastX)*.008;rotX=Math.max(-.35,Math.min(.7,rotX+(e.clientY-lastY)*.006));lastX=e.clientX;lastY=e.clientY});
+canvas.addEventListener('pointerup',()=>dragging=false);canvas.addEventListener('pointercancel',()=>dragging=false);
+canvas.addEventListener('wheel',e=>{dist=Math.max(280,Math.min(900,dist+e.deltaY*.5))},{passive:true});
+function home(){rotY=.55;rotX=.12;dist=540}
+function animate(){requestAnimationFrame(animate);const target=new THREE.Vector3(0,0,0);camera.position.set(Math.sin(rotY)*Math.cos(rotX)*dist,Math.sin(rotX)*dist*.7,Math.cos(rotY)*Math.cos(rotX)*dist);camera.lookAt(target);renderer.render(scene,camera)}
+function resize(){const r=canvas.getBoundingClientRect();renderer.setSize(r.width,r.height,false);camera.aspect=r.width/Math.max(1,r.height);camera.updateProjectionMatrix()}new ResizeObserver(resize).observe(canvas);resize();animate();
+Object.keys(defaults).forEach(id=>document.getElementById(id).addEventListener('input',renderLamp));
+function setPreset(p){activePreset=p;const values={ripple:{height:220,diameter:160,ribs:24,depth:5,twist:18,taper:18,wall:1.6,base:42},twist:{height:250,diameter:150,ribs:18,depth:7,twist:76,taper:8,wall:1.8,base:40},taper:{height:210,diameter:175,ribs:32,depth:3.5,twist:0,taper:38,wall:1.6,base:45},orb:{height:175,diameter:180,ribs:40,depth:4,twist:32,taper:-12,wall:1.4,base:38}}[p];Object.entries(values).forEach(([k,v])=>document.getElementById(k).value=v);document.querySelectorAll('.preset').forEach(b=>b.classList.toggle('active',b.dataset.preset===p));renderLamp()}
+document.querySelectorAll('.preset').forEach(b=>b.addEventListener('click',()=>setPreset(b.dataset.preset)));
+document.querySelectorAll('.swatch').forEach(b=>b.addEventListener('click',()=>{colorHex=b.dataset.color;mat.color.set(colorHex);document.querySelectorAll('.swatch').forEach(s=>s.classList.toggle('active',s===b))}));
+document.querySelector('#wireBtn').addEventListener('click',()=>{wire=!wire;lamp.material.wireframe=wire;document.querySelector('#wireBtn').textContent=wire?'▧  Solid view':'◇  Wireframe'});
+document.querySelector('#homeView').addEventListener('click',home);
+document.querySelector('#resetBtn').addEventListener('click',()=>setPreset('ripple'));
+function exportSTL(){if(!lamp)return;lamp.updateMatrixWorld(true);const exporter=new STLExporter();const output=exporter.parse(lamp,{binary:true});const blob=new Blob([output],{type:'application/octet-stream'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='curve-lab-'+activePreset+'-lamp.stl';a.click();URL.revokeObjectURL(url)}
+document.querySelector('#exportTop').addEventListener('click',exportSTL);document.querySelector('#exportBottom').addEventListener('click',exportSTL);
+renderLamp();
+</script>
+</body>
+</html>
